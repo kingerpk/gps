@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>货场监控Demo</title>
+    <link rel="stylesheet" href="style.css" type="text/css">
+	<script src="js/jquery.js"></script>
+    <script src="js/OpenLayers-2.12/OpenLayers.js"></script>
+	<script src="gps1.js"></script>
+    <script type="text/javascript">
+		   var i=1;
+		   var gpsCount=1;
+		   var valueTem="";
+		   var GpsLineLayer;
+		   var pointEndLayer;
+		   var localhost="http://localhost:8080/geoserver";
+		   OpenLayers.Control.Click = OpenLayers.Class(OpenLayers.Control, {                
+                defaultHandlerOptions: {
+                    'single': true,
+                    'double': false,
+                    'pixelTolerance': 0,
+                    'stopSingle': false,
+                    'stopDouble': false
+                },
+
+                initialize: function(options) {
+                    this.handlerOptions = OpenLayers.Util.extend(
+                        {}, this.defaultHandlerOptions
+                    );
+                    OpenLayers.Control.prototype.initialize.apply(
+                        this, arguments
+                    ); 
+                    this.handler = new OpenLayers.Handler.Click(
+                        this, {
+                            'click': this.trigger
+                        }, this.handlerOptions
+                    );
+                }, 
+
+                trigger: function(e) {
+                    var lonlat = map.getLonLatFromPixel(e.xy);
+					var date=new Date(); 
+					var dateStr="time:'"+date.getFullYear()+"-"+(date.getMonth()+1)+"-"+date.getDay()+"T"+date.getHours()+"-"+date.getMinutes()+"-"+date.getSeconds()+"'"; 
+					var lonlatStr="lon:"+lonlat.lon+",lat:"+lonlat.lat;
+					var idStr="id:"+i;
+					i++;
+					valueTem=valueTem+"\n{"+idStr+","+lonlatStr+","+dateStr+"}";
+					if(i==2){
+						valueTem="var gps"+gpsCount+"=[\n"+valueTem+",";
+					}
+					else if(i>4){
+						
+						i=1;
+						gpsCount++;
+						valueTem=valueTem+"\n]";
+					    var value=$("#lonlat").attr("value");
+						$("#lonlat").attr("value",value+"\n"+valueTem);
+						valueTem="";
+					}
+					else{
+						valueTem=valueTem+",";
+					}
+					var point=new OpenLayers.Geometry.Point(lonlat.lon,lonlat.lat);
+					var feature=GpsLineLayer.getFeaturesByAttribute("id",1);
+					var featureT=new OpenLayers.Feature.Vector(point);
+						featureT.attributes.id=1;
+						GpsLineLayer.addFeatures(featureT);
+                }
+
+            });
+		
+        var map, layer;
+        function init(){
+		  
+            map=loadMap("");
+			addGraphicsLayer();
+			var mousep=new OpenLayers.Control.MousePosition();
+			mousep.displayProjection=new OpenLayers.Projection("EPSG:4214");
+			map.addControl(mousep);
+			mousep.activate();
+			var click = new OpenLayers.Control.Click();
+            map.addControl(click);
+            click.activate();
+		
+        }
+		
+		function loadMap(name){
+			    var bounds = new OpenLayers.Bounds(
+                    113.2649917602539, 29.464948654174805,
+                    113.27677154541016, 29.48064422607422
+                );
+                var options = {
+                    controls: [],
+                    maxExtent: bounds,
+                    
+                    projection: "EPSG:4214",
+                    units: 'degrees'
+                };
+			var loadmap = new OpenLayers.Map( 'map',options);		
+			var railway = new OpenLayers.Layer.WMS(
+								"Global Imagery",
+								localhost+"/wms?service=WMS",
+								 {layers: "cite:gt"},
+								 {singleTile:true}
+							);
+						 
+			 loadmap.addLayers([railway]);
+			 loadmap.addControl(new OpenLayers.Control.PanZoomBar({
+                    position: new OpenLayers.Pixel(2, 15)
+                }));
+                loadmap.addControl(new OpenLayers.Control.Navigation());
+                loadmap.addControl(new OpenLayers.Control.Scale($('scale')));
+                loadmap.addControl(new OpenLayers.Control.MousePosition({element: $('location')}));
+                loadmap.zoomToExtent(bounds);
+			 loadmap.setCenter(new OpenLayers.LonLat(113.28510,29.46135),2);
+			 return loadmap;
+		}
+		
+		function readyToStartGps(){
+			
+				window.setInterval(function(){showCurrentGps()},100); 
+			
+		}
+		
+		function showCurrentGps(){
+			var gpsData=loadGpsData(i);
+			if(!gpsData){return;}
+			pointEndLayer.removeAllFeatures();
+			for(var j in gpsData){
+				var gps=gpsData[j];
+				var features=GpsLineLayer.getFeaturesByAttribute("id",gps.id);
+				var point=conventPoint(gps.lon,gps.lat);
+				pointEndLayer.addFeatures([new OpenLayers.Feature.Vector(point,{id:gps.id+"号员工"})]);
+				
+				if(features.length<1){
+					
+					var featureT=new OpenLayers.Feature.Vector(point);
+					featureT.attributes.id=gps.id;
+					GpsLineLayer.addFeatures(featureT);
+				}
+				else{
+					var feature=features[0];
+					var geometry=feature.geometry;
+					var points=geometry.getVertices();
+					if(points.length==1){
+						var pointO=points[0];
+						var newLine=new OpenLayers.Geometry.LineString([pointO,point]);
+						var mline=new OpenLayers.Geometry.MultiLineString([newLine]);
+						var featureT=new OpenLayers.Feature.Vector(mline);
+						featureT.attributes=feature.attributes;
+						GpsLineLayer.removeFeatures([feature]);
+						GpsLineLayer.addFeatures(featureT);
+					}
+					else{
+						var line=geometry.components[geometry.components.length-1];
+						var points=line.getVertices();
+						var newLine=new OpenLayers.Geometry.LineString([points[points.length-1],point]);
+						geometry.addComponents(newLine);
+						var featureT=new OpenLayers.Feature.Vector(geometry);
+						featureT.attributes=feature.attributes;
+						GpsLineLayer.removeFeatures(features);
+						GpsLineLayer.addFeatures(featureT);
+					}
+				}
+			}
+			i++;
+		}
+		
+		function addGraphicsLayer(){
+			GpsLineLayer=new OpenLayers.Layer.Vector();
+			pointEndLayer=new OpenLayers.Layer.Vector("point",{
+							styleMap: new OpenLayers.StyleMap({
+										"default":new OpenLayers.Style({
+													pointRadius:6,
+													fillColor: "#ff9933",
+													strokeColor: "white",
+													strokeWidth: 2,
+													label:'${id}',
+													labelXOffset: "-15",
+													labelYOffset: "15"
+												}),	
+										"select": new OpenLayers.Style({
+													fillColor: "#66ccff",
+													strokeColor: "#3399ff",
+													graphicZIndex: 2
+												})
+								})
+			});
+			map.addLayers([GpsLineLayer,pointEndLayer]);	
+		}
+		
+		function loadGpsData(name){
+			var gps=null;
+			try{
+				gps=eval("gps"+name);
+			}
+			catch(e){
+			}
+			return gps;
+		}
+		
+		function conventPoint(x,y){
+			  var ox=113.264988643;
+			  var oy=29.465193982;
+			  var sx=2;
+			  var sy=23;
+			  var rd= 53.1112;
+			  var d=rd*Math.PI/180;
+			  var tx=(x-ox)*Math.cos(d)+(y-oy)*Math.sin(d)+ox;
+			  var ty=-(x-ox)*Math.sin(d)+(y-oy)*Math.cos(d)+oy;
+			  
+			  var tw=(tx-ox)*sx;
+			  var th=(ty-oy)*sy;
+			  tx=(ox+tw);
+			  ty=(oy+th);
+			  var point=new OpenLayers.Geometry.Point(x,y);
+			  return point;
+		}
+		
+    </script>
+  </head>
+  <body onload="init()">
+	<div style="width:1024px;height:500px;margin:auto">
+    <div id="map" class="smallmap" style="width:1024px;height:500px;margin:auto"></div>
+	</div>
+	<div style="width:1px;height:1px;">
+    </div>
+	<div id="docs">
+        <textarea id="lonlat" style="width:800px;height:800px;"></textarea>
+    </div>
+  </body>
+</html>
