@@ -9,15 +9,15 @@
 	<script src="js/jquery.js"></script>
     <script src="js/OpenLayers-2.12/OpenLayers.js"></script>
 	<script src="gps1.js"></script>
+	<script src="gps2.js"></script>
     <script type="text/javascript">
-		   var i=1;
-		   var layerLoadedCount=0;
-		   var GpsLineLayer;
-		   var pointEndLayer;
-		   var mapname="gt";
+		   var i=1;//测试gps数据用
+		   var GpsLineLayer;//gps路线图层
+		   var pointEndLayer;//线头，也就是表示那个人当前的位置
+		   var mapname="gt";//地图名
 		   var localhost="http://localhost:8080/geoserver";
-		
-        var map, layer;
+		   var map //地图对象
+		   
         function init(){
 		  
             map=loadMap();
@@ -29,10 +29,8 @@
         }
 		
 		function loadMap(){
-			    var bounds = new OpenLayers.Bounds(
-                    113.26459503173828,29.455821990966797,113.30384063720703,29.465429306030273
-                );
-				var centerPoint=new OpenLayers.LonLat(113.28510,29.46135);
+			    var bounds = openlayerUtil.getBound(mapname);
+				var centerPoint=openlayerUtil.getCenter(mapname);
                 var options = {
                     maxExtent: bounds,
                     projection: "EPSG:4214",
@@ -83,7 +81,6 @@
 		
 		function readyToStartGps(){
 				window.setInterval(function(){showCurrentGps()},100); 
-		
 		}
 		
 		function showCurrentGps(){
@@ -94,9 +91,63 @@
 				var gps=gpsData[j];
 				var features=GpsLineLayer.getFeaturesByAttribute("id",gps.id);
 				
-				var point=openlayerConvent.conventPoint(gps.lon,gps.lat,mapname);
+				var point=openlayerUtil.conventPoint(gps.lon,gps.lat,mapname);
 				
 				pointEndLayer.addFeatures([new OpenLayers.Feature.Vector(point,{id:gps.id+"号员工"})]);
+				
+				if(features.length<1){
+					
+					var featureT=new OpenLayers.Feature.Vector(point);
+					featureT.attributes.id=gps.id;
+					GpsLineLayer.addFeatures(featureT);
+				}
+				else{
+					var feature=features[0];
+					var geometry=feature.geometry;
+					var points=geometry.getVertices();
+					if(points.length==1){
+						var pointO=points[0];
+						var newLine=new OpenLayers.Geometry.LineString([pointO,point]);
+						var mline=new OpenLayers.Geometry.MultiLineString([newLine]);
+						var featureT=new OpenLayers.Feature.Vector(mline);
+						featureT.attributes=feature.attributes;
+						GpsLineLayer.removeFeatures([feature]);
+						GpsLineLayer.addFeatures(featureT);
+					}
+					else{
+						var line=geometry.components[geometry.components.length-1];
+						var points=line.getVertices();
+						var newLine=new OpenLayers.Geometry.LineString([points[points.length-1],point]);
+						geometry.addComponents(newLine);
+						var featureT=new OpenLayers.Feature.Vector(geometry);
+						featureT.attributes=feature.attributes;
+						GpsLineLayer.removeFeatures(features);
+						GpsLineLayer.addFeatures(featureT);
+					}
+				}
+			}
+			i++;
+		}
+		
+		function clearGps(){
+			GpsLineLayer.removeAllFeatures();
+			pointEndLayer.removeAllFeatures();
+		}
+		
+		function addGpsData(gpsData){
+			if(!gpsData){return;}
+			GpsLineLayer.removeAllFeatures();
+			pointEndLayer.removeAllFeatures();
+			for(var j=0;j<=gpsData.length-2;j+=2){
+				
+			}
+			for(var j in gpsData){
+				var gps=gpsData[j];
+				var features=GpsLineLayer.getFeaturesByAttribute("id",gps.id);
+				
+				var point=openlayerUtil.conventPoint(gps.lon,gps.lat,mapname);
+				
+				pointEndLayer.addFeatures([new OpenLayers.Feature.Vector(point)]);
 				
 				if(features.length<1){
 					
