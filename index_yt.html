@@ -3,9 +3,10 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>货场监控</title>
 	<script src="js/jquery.js"></script>
-    <script src="js/OpenLayers-2.12/OpenLayers.js"></script>
+    <script src="js/OpenLayers-2.12/lib/OpenLayers.js"></script>
     <script type="text/javascript">
 		   var i=1;//测试gps数据用
 		   var temLayer;
@@ -17,11 +18,15 @@
 		   var interval_control;//定时器对象
 		   var timeToClear=60000*10;//间隔多长时间情况gps点，10分钟
 		   var lastTimeClear=null;//上一次清空时间
+		   var railway=null;
 		   
         function init(){
 			jQuery.getScript("./data/"+mapname+"_mapArg.js")
             map=loadMap();//加载地图
 			addGraphicsLayer(map);//加载gps图层
+			var mousep=new OpenLayers.Control.MousePosition();//显示鼠标位置的控件
+			mousep.displayProjection=new OpenLayers.Projection("EPSG:4214");//
+			map.addControl(mousep);
 			temLayer.setVisibility(false);
         }
 		
@@ -29,38 +34,67 @@
 		*加载地图
 		*/
 		function loadMap(){
-				 var bounds1 = new OpenLayers.Bounds(
-                    113.26635949312588, 29.45538011497437,
-                    113.30276524651514, 29.465135084464226
-                ); 
-                var options = {maxExtent: bounds1};
+			  var bounds = new OpenLayers.Bounds(
+                    113.264989, 29.464948,
+					113.27716, 29.481153
+                );
+                var options = {maxExtent: bounds};
 			var loadmap = new OpenLayers.Map('map',options);		
-			var railway = new OpenLayers.Layer.WMS(
+			blank = new OpenLayers.Layer.WMS(
 								"Global Imagery",
 								localhost+"/wms?service=WMS",
-								 {layers: "cite:"+mapname+"_new"},
+								 {layers: "cite:gt_new"},
 								 {singleTile:true}
 							);
-			temLayer=new OpenLayers.Layer.Vector("tem",{
-				strategies: [new OpenLayers.Strategy.BBOX()],
-				protocol: new OpenLayers.Protocol.WFS({
-                    url: "http://localhost:8080/geoserver/wfs",
-                    featureType: mapname+"_cp",
-                    featureNS: "http://www.opengeospatial.net/cite"
-                })
-			 });
-		
+			blank.getURL=urll;
+			temLayer=new OpenLayers.Layer.Vector("tem");
+			 
+			 $.get(
+				"data/yx_cp.txt",
+				function(data){
+						var format=new OpenLayers.Format.GML()
+						var temfeature=format.read(data);
+						temLayer.addFeatures(temfeature);
+					}
+				)
+			railway=new OpenLayers.Layer.Vector("railway");
+			
+			$.get(
+				"data/yx_yt.txt",
+				function(data){
+						var format=new OpenLayers.Format.GML()
+						var temfeature=format.read(data);
+						railway.addFeatures(temfeature);
+					}
+				)
+				
+			OpenLayers.Request.GET({
+						url: "data/railway.xml",
+						success: function(req){
+							 var format = new OpenLayers.Format.SLD();
+							 var sld = format.read(req.responseXML || req.responseText);
+							 var style=sld.namedLayers['railway'].userStyles[0];
+							 var styleMap= new OpenLayers.StyleMap({"default":style});
+							 railway.styleMap=styleMap;
+						}
+					});
 						 
-			 loadmap.addLayers([railway,temLayer]);
+			 loadmap.addLayers([blank,temLayer,railway]);
 			 loadmap.addControl(new OpenLayers.Control.PanZoomBar({
                     position: new OpenLayers.Pixel(2, 15)
                 }));
                 loadmap.addControl(new OpenLayers.Control.Navigation());
                 loadmap.addControl(new OpenLayers.Control.Scale($('scale')));
                 loadmap.addControl(new OpenLayers.Control.MousePosition({element: $('location')}));
-                loadmap.zoomToExtent(bounds1);
+                loadmap.zoomToExtent(bounds);
 			 loadmap.setCenter(new OpenLayers.LonLat(113.28510,29.46135),2);
+			 
+
 			 return loadmap;
+		}
+		
+		function urll(){
+			return "data/blank.jpg";
 		}
 		
 		/*
@@ -79,6 +113,11 @@
 													labelXOffset: "-15",
 													labelYOffset: "15",
 													externalGraphic: "img/${id}.jpg"
+												}),	
+										"select": new OpenLayers.Style({
+													fillColor: "#66ccff",
+													strokeColor: "#3399ff",
+													graphicZIndex: 2
 												})
 								})//初始化矢量图层
 			});
@@ -95,8 +134,8 @@
 		/*
 		*向服务器请求最新的gps数据，然后在地图显示
 		*/
-		function showCurrentGps(){
-			var gpsData=loadGpsData();
+		function showCurrentGps(gpsobj){
+			var gpsData=gpsobj;
 			if(!gpsData){return;}
 			for(var j in gpsData){
 				var gps=gpsData[j];//这里代表一个gps设备的当前位置信息
@@ -120,11 +159,11 @@
 				var feature=new OpenLayers.Feature.Vector(resultgeo,{id:gps.id});
 				GpsLineLayer.removeFeatures(features);
 				GpsLineLayer.addFeatures(feature);
+				
 			}
 			i++;
 		}
 		
-		//将新数据和老数据合并成一个geometry
 		function builtGeometry(newgeo,oldgeo){
 			if(!newgeo||!oldgeo){
 				return null;
@@ -195,7 +234,6 @@
 			clearInterval(interval_control);
 		}
 		
-		//将gps对象转成geometry
 		function getGpsGeometry(gpss){
 			if(gpss.length==1){
 			
@@ -342,7 +380,9 @@
   </head>
   <body onload="init()">
 	<div style="width:1024px;height:500px;margin:auto">
-    <div id="map" class="smallmap" style="width:1024px;height:500px;margin:auto"></div>	
+    <div id="map" class="smallmap" style="width:1024px;height:500px;margin:auto"></div>
+	<textarea id="gd" style="width:624px;height:100px"></textarea>
+	<button onclick=test()>click</button>
 	</div>
   </body>
 </html>
