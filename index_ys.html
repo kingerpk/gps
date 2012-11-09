@@ -12,7 +12,7 @@
 		   var temLayer;
 		   var GpsLineLayer;//gps路线图层
 		   var pointEndLayer;//线头，也就是表示那个人当前的位置
-		   var mapname="yx";//地图名
+		   var mapname="5";//地图名
 		   var localhost="http://localhost:8080/geoserver";
 		   var map //地图对象
 		   var interval_control;//定时器对象
@@ -25,7 +25,6 @@
             map=loadMap();//加载地图
 			addGraphicsLayer(map);//加载gps图层
 			var mousep=new OpenLayers.Control.MousePosition();//显示鼠标位置的控件
-			mousep.displayProjection=new OpenLayers.Projection("EPSG:4214");//
 			map.addControl(mousep);
 			temLayer.setVisibility(false);
         }
@@ -34,46 +33,41 @@
 		*加载地图
 		*/
 		function loadMap(){
-			  var bounds = new OpenLayers.Bounds(
-                     113.26635949312588, 29.45538011497437,
-                    113.30276524651514, 29.465135084464226
-                );
+			 var bounds = new OpenLayers.Bounds(
+                    112.5526179,28.149545,112.5562953,28.151021
+                ); 
                 var options = {maxExtent: bounds};
 			var loadmap = new OpenLayers.Map('map',options);		
-			blank = new OpenLayers.Layer.WMS(
+		
+			railway = new OpenLayers.Layer.WMS(
 								"Global Imagery",
 								localhost+"/wms?service=WMS",
-								 {layers: "cite:gt_new"},
+								 {layers: "cite:"+mapname+"_new"},
 								 {singleTile:true}
 							);
-			blank.getURL=urll;
 			temLayer=new OpenLayers.Layer.Vector("tem");
 			 
 			 $.get(
-				"data/yx_cp.txt",
+				"data/5_cp.txt",
 				function(data){
 						var format=new OpenLayers.Format.GML()
 						var temfeature=format.read(data);
 						temLayer.addFeatures(temfeature);
 					}
 				)
-			railway=new OpenLayers.Layer.Vector("railway");
-			
-			$.get(
-				"data/yx_new.txt",
-				function(data){
-						var format=new OpenLayers.Format.GML()
-						var temfeature=format.read(data);
-						railway.addFeatures(temfeature);
-					}
-				)
+				
+			var nouse=new OpenLayers.Layer.Vector("tem1",{
+				strategies: [new OpenLayers.Strategy.BBOX()],
+				protocol: new OpenLayers.Protocol.WFS({
+                    url: "http://localhost:8080/geoserver/wfs",
+                    featureType: mapname+"_ne",
+                    featureNS: "http://www.opengeospatial.net/cite"
+                })
+			 });
+		
 						 
-			 loadmap.addLayers([blank,temLayer,railway]);
-			 loadmap.addControl(new OpenLayers.Control.PanZoomBar({
-                    position: new OpenLayers.Pixel(2, 15)
-                }));
-                loadmap.addControl(new OpenLayers.Control.Navigation());
-                loadmap.addControl(new OpenLayers.Control.Scale($('scale')));
+			 loadmap.addLayers([railway,temLayer,nouse]);
+			
                 loadmap.addControl(new OpenLayers.Control.MousePosition({element: $('location')}));
                 loadmap.zoomToExtent(bounds);
 			 loadmap.setCenter(new OpenLayers.LonLat(113.28510,29.46135),2);
@@ -82,9 +76,6 @@
 			 return loadmap;
 		}
 		
-		function urll(){
-			return "data/blank.jpg";
-		}
 		
 		/*
 		*加载gps图层
@@ -132,7 +123,7 @@
 				var oldPoint=pointEndLayer.getFeaturesByAttribute("id",gps.id);//获取对应的点头
 				var lastTime=readTimeStr(gps.gps[gps.gps.length-1].time);
 				if(lastTimeClear==null)lastTimeClear=lastTime;
-				if((lastTime-lastTimeClear)>=timeToClear)GpsLineLayer.removeAllFeatures();//达到时间了清空所有数据
+				if((lastTime-lastTimeClear)>=timeToClear)clearGps();//达到时间了清空所有数据
 				var point=conventPoint2(gps.gps[gps.gps.length-1].lon,gps.gps[gps.gps.length-1].lat);//根据当前的坐标初始化点
 				pointEndLayer.addFeatures([new OpenLayers.Feature.Vector(point,{id:gps.id,time:lastTime})]);
 				pointEndLayer.removeFeatures(oldPoint);//将对应id的点头去掉
@@ -186,10 +177,11 @@
 				else{
 					var line=oldgeo.components[oldgeo.components.length-1];//获取折线中的最后一条线
 					var points=line.getVertices();//拿到这条线的两个点
-					var lineN=newgeo.components[newgeo.components.length-1];
+					var lineN=newgeo.components[0];
 					var pointsN=lineN.getVertices();//拿到这条线的两个点
-					var newLine=new OpenLayers.Geometry.LineString([points[0],pointsN[0]]);//把当前的gps点和这条线的最后一个点组成新的线
+					var newLine=new OpenLayers.Geometry.LineString([points[1],pointsN[0]]);//把当前的gps点和这条线的最后一个点组成新的线
 					oldgeo.addComponents(newLine);//将这条线加入到折线中
+					oldgeo.addComponents(newgeo.components);
 					return oldgeo;
 				}
 			}
@@ -322,7 +314,7 @@
 			}
 		}
 		
-		function calcDistance(p1x,p1y,p0x,p0y,p2x,p2y){
+		function calcDistanceBUP(p1x,p1y,p0x,p0y,p2x,p2y){
 			var p1p0=(p1y-p0y)/(p1x-p0x);
 			var p2p0=(p2y-p0y)/(p2x-p0x);
 			var p1p0p2=Math.abs(p1p0-p2p0);
@@ -330,12 +322,17 @@
 			return p1p0p2*p12p0;
 		}
 		
+		function calcDistance(x0,y0,x1,y1,x2,y2){
+			 var result=Math.abs((x2-x1)*(y0-y1)-( x0-x1)*(y2-y1)) / Math.sqrt(Math.pow((x2-x1),2) +Math.pow((y2-y1),2));
+			return result;
+		}
+		
 		function conventPoint(x,y){
-			  var ox=113.264988643;
-			  var oy=29.465193982;
-			  var sx=2;
-			  var sy=23;
-			  var rd= 53.1112;
+			  var ox=112.5526184;
+			  var oy=28.149544189;
+			  var sx=0.6;
+			  var sy=4;
+			  var rd= 0;
 			  var d=rd*Math.PI/180;
 			  var tx=(x-ox)*Math.cos(d)+(y-oy)*Math.sin(d)+ox;
 			  var ty=-(x-ox)*Math.sin(d)+(y-oy)*Math.cos(d)+oy;
@@ -365,12 +362,26 @@
 			showCurrentGps(gpsdata);
 		}
 		
+		function addpoint(x,y){
+			var p=conventPoint2(x,y);
+			var feature=new OpenLayers.Feature.Vector(p);
+			GpsLineLayer.addFeatures(feature);
+			return p;
+		}
+		
+		function addpoint2(x,y){
+			var p=conventPoint(x,y);
+			var feature=new OpenLayers.Feature.Vector(p);
+			GpsLineLayer.addFeatures(feature);
+			return p;
+		}
+		
     </script>
   </head>
   <body onload="init()">
 	<div style="width:1024px;height:500px;margin:auto">
     <div id="map" class="smallmap" style="width:1024px;height:500px;margin:auto"></div>
-	<textarea id="gd" style="width:624px;height:100px"></textarea>
+	<textarea id="gd" style="width:624px;height:300px;margin-top:10px"></textarea>
 	<button onclick=test()>click</button>
 	</div>
   </body>
