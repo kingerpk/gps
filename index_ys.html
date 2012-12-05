@@ -1,7 +1,6 @@
-<!DOCTYPE html>
 <html>
   <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>货场监控</title>
@@ -12,7 +11,7 @@
 		   var temLayer;
 		   var GpsLineLayer;//gps路线图层
 		   var pointEndLayer;//线头，也就是表示那个人当前的位置
-		   var mapname="5";//地图名
+		   var mapname="a29";//地图名
 		   var localhost="http://localhost:8080/geoserver";
 		   var map //地图对象
 		   var interval_control;//定时器对象
@@ -26,7 +25,7 @@
 			addGraphicsLayer(map);//加载gps图层
 			var mousep=new OpenLayers.Control.MousePosition();//显示鼠标位置的控件
 			map.addControl(mousep);
-			temLayer.setVisibility(false);
+			temLayer.setVisibility(true);
         }
 		
 		/*
@@ -34,9 +33,10 @@
 		*/
 		function loadMap(){
 			 var bounds = new OpenLayers.Bounds(
-                    112.5526179,28.149545,112.5562953,28.151021
+                    112.95407,28.11244,112.95659,28.11162
                 ); 
                 var options = {maxExtent: bounds};
+				
 			var loadmap = new OpenLayers.Map('map',options);		
 		
 			railway = new OpenLayers.Layer.WMS(
@@ -45,32 +45,31 @@
 								 {layers: "cite:"+mapname+"_new"},
 								 {singleTile:true}
 							);
-			temLayer=new OpenLayers.Layer.Vector("tem");
-			 
-			 $.get(
-				"data/5_cp.txt",
-				function(data){
-						var format=new OpenLayers.Format.GML()
-						var temfeature=format.read(data);
-						temLayer.addFeatures(temfeature);
-					}
-				)
-				
-			var nouse=new OpenLayers.Layer.Vector("tem1",{
+			temLayer=new OpenLayers.Layer.Vector("temLayer",{
 				strategies: [new OpenLayers.Strategy.BBOX()],
 				protocol: new OpenLayers.Protocol.WFS({
-                    url: "http://localhost:8080/geoserver/wfs",
-                    featureType: mapname+"_ne",
+                    url: "http://localhost:8080/geoserver/ows",
+                    featureType: "a29_cp",
                     featureNS: "http://www.opengeospatial.net/cite"
-                })
+                })				
 			 });
+			 
+				
+			/*nouse=new OpenLayers.Layer.Vector("tem1",{
+				strategies: [new OpenLayers.Strategy.BBOX()],
+				protocol: new OpenLayers.Protocol.WFS({
+                    url: "http://localhost:8080/geoserver/ows",
+                    featureType: "a29_cp",
+                    featureNS: "http://www.opengeospatial.net/cite"
+                })				
+			 });*/
 		
 						 
-			 loadmap.addLayers([railway,temLayer,nouse]);
+			 loadmap.addLayers([railway,temLayer]);
 			
                 loadmap.addControl(new OpenLayers.Control.MousePosition({element: $('location')}));
                 loadmap.zoomToExtent(bounds);
-			 loadmap.setCenter(new OpenLayers.LonLat(113.28510,29.46135),2);
+			 loadmap.setCenter(new OpenLayers.LonLat(112.955,28.112),20);
 			 
 
 			 return loadmap;
@@ -275,64 +274,63 @@
 					if(mArgs.result){
 						return new OpenLayers.Geometry.Point(mArgs.result[0],mArgs.result[1]);
 					}
-					var distanctTop=calcDistance(point.x,point.y,mArgs.p1.yt[0],mArgs.p1.yt[1],mArgs.p4.yt[0],mArgs.p4.yt[1]);
-					var distanctButtom=calcDistance(point.x,point.y,mArgs.p2.yt[0],mArgs.p2.yt[1],mArgs.p3.yt[0],mArgs.p3.yt[1]);
+					var distanctTop=mArgs.h.ys*calcDistance(point.x,point.y,mArgs.p1.yt[0],mArgs.p1.yt[1],mArgs.p4.yt[0],mArgs.p4.yt[1])/mArgs.h.yt;
+					var distanctButtom=mArgs.h.ys*calcDistance(point.x,point.y,mArgs.p2.yt[0],mArgs.p2.yt[1],mArgs.p3.yt[0],mArgs.p3.yt[1])/mArgs.h.yt;
+					var distanceLeft=mArgs.h.ys*calcDistance(point.x,point.y,mArgs.p1.yt[0],mArgs.p1.yt[1],mArgs.p2.yt[0],mArgs.p2.yt[1])/mArgs.h.yt;
+					var distanceRight=mArgs.h.ys*calcDistance(point.x,point.y,mArgs.p3.yt[0],mArgs.p3.yt[1],mArgs.p4.yt[0],mArgs.p4.yt[1])/mArgs.h.yt;
 					var newY;
 					var newX;
-					var direct=1;
+					
 					if(distanctTop<distanctButtom){
-						var distanct=(distanctTop/mArgs.h.yt)*mArgs.h.ys;
 						newY=mArgs.p1.ys[1]-distanctTop;
 					}
 					else{
-						var distanct=(distanctButtom/mArgs.h.yt)*mArgs.h.ys;
-						newY=mArgs.p2.ys[1]+distanctButtom;
+						newY=mArgs.p2.ys[1]+distanctTop;
 					}
-					if(point.x<mArgs.op.x&&point.y<mArgs.op.y){
-						calcPointArg=mArgs.p2;
-						direct=1;
+					
+					if(distanceLeft<distanceRight){
+						var newXInfo=calcX(newY,mArgs.p1.ys[0],mArgs.p1.ys[1],mArgs.p2.ys[0],mArgs.p2.ys[1],distanceLeft);
+						newX=newXInfo[1]+newXInfo[0];
 					}
-					else if(point.x<mArgs.op.x&&point.y>mArgs.op.y){
-						calcPointArg=mArgs.p1;
-						direct=1;
+					else{
+						var newXInfo=calcX(newY,mArgs.p3.ys[0],mArgs.p3.ys[1],mArgs.p4.ys[0],mArgs.p4.ys[1],distanceRight);
+						newX=newXInfo[1]-newXInfo[0];
 					}
-					else if(point.x>mArgs.op.x&&point.y>mArgs.op.y){
-						if(mArgs.p4==null){
-							calcPointArg=mArgs.p1;
-						}
-						calcPointArg=mArgs.p4;
-						direct=-1;
-					}
-					else if(point.x>mArgs.op.x&&point.y<mArgs.op.y){
-						calcPointArg=mArgs.p3;
-						direct=-1;
-					}
-					var calcPoint=new OpenLayers.Geometry.Point(calcPointArg.yt[0],calcPointArg.yt[1]);
-					newX=Math.abs(((point.x-calcPoint.x)/mArgs.w.yt)*mArgs.w.ys)*direct+calcPointArg.ys[0];
+					
+					
+					
 					return new OpenLayers.Geometry.Point(newX,newY);
 				}
 			}
 		}
 		
-		function calcDistanceBUP(p1x,p1y,p0x,p0y,p2x,p2y){
-			var p1p0=(p1y-p0y)/(p1x-p0x);
-			var p2p0=(p2y-p0y)/(p2x-p0x);
-			var p1p0p2=Math.abs(p1p0-p2p0);
-			var p12p0=Math.sqrt(Math.pow((p1x-p0x),2)+Math.pow((p1y-p0y),2));
-			return p1p0p2*p12p0;
+		function calcDistance(Cx,Cy,Ax,Ay,Bx,By){
+			var k=(By-Ay)/(Bx-Ax);
+			var x=(Cy-Ay+k*Ax+Cx/k)/(k+1/k);
+			var y=Cy-(x-Cx)/k;
+			var result= Math.sqrt(Math.pow((x-Cx),2)+Math.pow((y-Cy),2));
+			return result;
 		}
 		
-		function calcDistance(x0,y0,x1,y1,x2,y2){
+		function calcX(Cy,Ax,Ay,Bx,By,distance){
+			var k=(By-Ay)/(Bx-Ax);
+			var d=-distance/k;
+			var xd=Math.sqrt((distance*distance+d*d));
+			var xOnLine=(Bx-Ax)*(Cy-Ay)/(By-Ay)+Ax;
+			return [xd,xOnLine];
+		}
+		
+		function calcDistanceBUP(x0,y0,x1,y1,x2,y2){
 			 var result=Math.abs((x2-x1)*(y0-y1)-( x0-x1)*(y2-y1)) / Math.sqrt(Math.pow((x2-x1),2) +Math.pow((y2-y1),2));
 			return result;
 		}
 		
 		function conventPoint(x,y){
-			  var ox=112.5526184;
-			  var oy=28.149544189;
-			  var sx=0.6;
-			  var sy=4;
-			  var rd= 0;
+			  var ox=112.954258541;
+			  var oy=28.113876232;
+			  var sx=0.4;
+			  var sy=9;
+			  var rd= 83.2;
 			  var d=rd*Math.PI/180;
 			  var tx=(x-ox)*Math.cos(d)+(y-oy)*Math.sin(d)+ox;
 			  var ty=-(x-ox)*Math.sin(d)+(y-oy)*Math.cos(d)+oy;
@@ -341,7 +339,7 @@
 			  var th=(ty-oy)*sy;
 			  tx=(ox+tw);
 			  ty=(oy+th);
-			  var point=new OpenLayers.Geometry.Point(tx,ty);
+			  var point=new OpenLayers.Geometry.Point(x,y);
 			  return point;
 		}
 		

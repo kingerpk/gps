@@ -98,7 +98,7 @@
 		
 		function loadMap(name){
 			    var bounds = new OpenLayers.Bounds(
-                    112.5526179,28.149545,112.5562953,28.149721
+                     112.95459,28.11380,112.95634,28.11263
                 ); 
                 var options = {
                     controls: [],
@@ -111,7 +111,7 @@
 			var railway = new OpenLayers.Layer.WMS(
 								"Global Imagery",
 								localhost+"/wms?service=WMS",
-								 {layers: "cite:5"},
+								 {layers: "cite:a29_cp"},
 								 {singleTile:true}
 							);
 						 
@@ -123,7 +123,7 @@
                 loadmap.addControl(new OpenLayers.Control.Scale($('scale')));
                 loadmap.addControl(new OpenLayers.Control.MousePosition({element: $('location')}));
                 loadmap.zoomToExtent(bounds);
-			 loadmap.setCenter(new OpenLayers.LonLat(113.28510,29.46135),2);
+			 loadmap.setCenter(new OpenLayers.LonLat(112.95588,28.11341),2);
 			 return loadmap;
 		}
 		
