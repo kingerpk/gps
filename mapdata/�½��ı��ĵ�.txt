@@ -1,0 +1,5 @@
+ static double ox=112.954258541;
+	  static double oy=28.113876232;
+	  static double sx=0.4;
+	  static double sy=9;
+	  static double rd= 83.2;
