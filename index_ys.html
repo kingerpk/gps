@@ -25,17 +25,22 @@
 			addGraphicsLayer(map);//加载gps图层
 			var mousep=new OpenLayers.Control.MousePosition();//显示鼠标位置的控件
 			map.addControl(mousep);
-			temLayer.setVisibility(true);
+			temLayer.setVisibility(false);
         }
 		
 		/*
 		*加载地图
 		*/
 		function loadMap(){
-			 var bounds = new OpenLayers.Bounds(
-                    112.95407,28.11244,112.95659,28.11162
-                ); 
-                var options = {maxExtent: bounds};
+				 var bounds = new OpenLayers.Bounds(
+                    112.95420151037503, 28.111840983208282,
+                    112.95652135770875, 28.112519811193188
+                );
+			 
+                var options = {
+					maxExtent: bounds,
+					maxResolution: 0.0000090619036474
+				 };
 				
 			var loadmap = new OpenLayers.Map('map',options);		
 		
@@ -69,7 +74,7 @@
 			
                 loadmap.addControl(new OpenLayers.Control.MousePosition({element: $('location')}));
                 loadmap.zoomToExtent(bounds);
-			 loadmap.setCenter(new OpenLayers.LonLat(112.955,28.112),20);
+			 loadmap.setCenter(new OpenLayers.LonLat(112.955,28.112),2);
 			 
 
 			 return loadmap;
@@ -276,8 +281,8 @@
 					}
 					var distanctTop=mArgs.h.ys*calcDistance(point.x,point.y,mArgs.p1.yt[0],mArgs.p1.yt[1],mArgs.p4.yt[0],mArgs.p4.yt[1])/mArgs.h.yt;
 					var distanctButtom=mArgs.h.ys*calcDistance(point.x,point.y,mArgs.p2.yt[0],mArgs.p2.yt[1],mArgs.p3.yt[0],mArgs.p3.yt[1])/mArgs.h.yt;
-					var distanceLeft=mArgs.h.ys*calcDistance(point.x,point.y,mArgs.p1.yt[0],mArgs.p1.yt[1],mArgs.p2.yt[0],mArgs.p2.yt[1])/mArgs.h.yt;
-					var distanceRight=mArgs.h.ys*calcDistance(point.x,point.y,mArgs.p3.yt[0],mArgs.p3.yt[1],mArgs.p4.yt[0],mArgs.p4.yt[1])/mArgs.h.yt;
+					var distanceLeft=mArgs.w.ys*calcDistance(point.x,point.y,mArgs.p1.yt[0],mArgs.p1.yt[1],mArgs.p2.yt[0],mArgs.p2.yt[1])/mArgs.w.yt;
+					var distanceRight=mArgs.w.ys*calcDistance(point.x,point.y,mArgs.p3.yt[0],mArgs.p3.yt[1],mArgs.p4.yt[0],mArgs.p4.yt[1])/mArgs.w.yt;
 					var newY;
 					var newX;
 					
@@ -285,7 +290,7 @@
 						newY=mArgs.p1.ys[1]-distanctTop;
 					}
 					else{
-						newY=mArgs.p2.ys[1]+distanctTop;
+						newY=mArgs.p2.ys[1]+distanctButtom;
 					}
 					
 					if(distanceLeft<distanceRight){
@@ -339,7 +344,7 @@
 			  var th=(ty-oy)*sy;
 			  tx=(ox+tw);
 			  ty=(oy+th);
-			  var point=new OpenLayers.Geometry.Point(x,y);
+			  var point=new OpenLayers.Geometry.Point(tx,ty);
 			  return point;
 		}
 		

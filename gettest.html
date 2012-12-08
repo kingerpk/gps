@@ -97,13 +97,14 @@
         }
 		
 		function loadMap(name){
-			    var bounds = new OpenLayers.Bounds(
-                     112.95459,28.11380,112.95634,28.11263
-                ); 
+			     var bounds = new OpenLayers.Bounds(
+                    112.95426972222222, 28.113862361111114,
+                    112.95491247222222, 28.119218833333335
+                );
                 var options = {
                     controls: [],
                     maxExtent: bounds,
-                    
+                    maxResolution: 0.0000209237196181,
                     projection: "EPSG:4326",
                     units: 'degrees'
                 };
@@ -111,7 +112,7 @@
 			var railway = new OpenLayers.Layer.WMS(
 								"Global Imagery",
 								localhost+"/wms?service=WMS",
-								 {layers: "cite:a29_cp"},
+								 {layers: "cite:hop"},
 								 {singleTile:true}
 							);
 						 
